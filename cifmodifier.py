@@ -37,9 +37,14 @@ def createDf(data) -> pd.DataFrame:
     df = pd.DataFrame(dataDict,columns=headers)
     return df
 
-def modifyDf(df:pd.DataFrame,columnName:str,condVal:float):
+def removeLayer(df:pd.DataFrame,columnName:str,condVal:float):
     newDf = df[df[columnName] != str(condVal)]
     return newDf
+
+def changeLayerPos(df:pd.DataFrame,columnName:str,changeVal:List[float]):
+    oldVal, newVal = changeVal
+    df[columnName] = df[columnName].replace(oldVal,newVal)
+    return df
 
 def createNewData(df,origData:List[str]):
     data = df.values
@@ -58,10 +63,15 @@ def writeFile(fileName,newData:Iterable[str]):
 cifData = readFile("graphite-sheet-8.52A.cif")
 df = createDf(cifData)
 ## For double layer
-newDf = modifyDf(df,"_atom_site_fract_z",0.666667)
+newDf = removeLayer(df,"_atom_site_fract_z",0.666667)
 newCifData = createNewData(newDf,cifData)
 writeFile("graphite-sheet-double_layer.cif",newCifData)
 ## For single layer
-newDf = modifyDf(newDf,"_atom_site_fract_z",0.333333)
+newDf = removeLayer(newDf,"_atom_site_fract_z",0.333333)
 newCifData = createNewData(newDf,cifData)
 writeFile("graphite-sheet-single_layer.cif",newCifData)
+
+## Keep the layer in middle
+newDf = changeLayerPos(newDf,"_atom_site_fract_z",["0","0.5"])
+newCifData = createNewData(newDf,cifData)
+writeFile("graphite-sheet-single_layer-0.5.cif",newCifData)
