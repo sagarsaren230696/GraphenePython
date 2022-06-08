@@ -80,14 +80,51 @@ def writeFile(fileName,newData:Iterable[str]):
         f.writelines(newData)
 
 def fractToCart(df:pd.DataFrame,dimList:List[float]):
+    dfNew = df.copy()
     for i,dim in enumerate(dimList):
-        df.iloc[:,i+2] = pd.to_numeric(df.iloc[:,i+2])*np.float64(dim)
-    return df
+        dfNew.iloc[:,i+2] = pd.to_numeric(dfNew.iloc[:,i+2])*np.float64(dim)
+    return dfNew
 
 def cartToFract(df:pd.DataFrame,dimList:List[float]):
     for i,dim in enumerate(dimList):
         df.iloc[:,i+2] = df.iloc[:,i+2]/dim
     return df
+
+def increaseXLen(dfInCart:pd.DataFrame,d_C1):
+    colHeader = "_atom_site_fract_x"
+    df_C1 = dfInCart[(dfInCart["_atom_site_label"]=="C1")]
+    pos_C1 = df_C1[colHeader].unique()
+    df_C2 = dfInCart[(dfInCart["_atom_site_label"]=="C2")]
+    pos_C2 = df_C2[colHeader].unique()
+    maxDf_C1C3 = pd.DataFrame(dfInCart[dfInCart[colHeader]==max(pos_C1)])
+    maxDf_C2C4 = pd.DataFrame(dfInCart[dfInCart[colHeader]==max(pos_C2)])
+    maxDf_C1C3[colHeader] = maxDf_C1C3[colHeader] + d_C1
+    maxDf_C2C4[colHeader] = maxDf_C2C4[colHeader] + d_C1
+    dfInCartNew = pd.concat([dfInCart,maxDf_C1C3,maxDf_C2C4])
+    return dfInCartNew
+
+def increaseYLen(dfInCart:pd.DataFrame,d_C1):
+    colHeader = "_atom_site_fract_y"
+    Carr = [f"C{i}" for i in [1,2,3,4]]
+    dfInCartNew = dfInCart.copy()
+    for Cval in Carr:
+        df_C = dfInCart[(dfInCart["_atom_site_label"]==Cval)]
+        maxPos = max(df_C[colHeader].unique())
+        maxDf = pd.DataFrame(dfInCart[dfInCart[colHeader]==maxPos])
+        maxDf[colHeader] = maxDf[colHeader] + d_C1
+        dfInCartNew = pd.concat([dfInCartNew,maxDf])
+    return dfInCartNew
+
+def decreaseLen(dfInCart:pd.DataFrame,direction='x'):
+    dfInCartNew = dfInCart.copy()
+    colHeader = "_atom_site_fract_{}".format(direction)
+    df_C1 = dfInCartNew[(dfInCartNew["_atom_site_label"]=="C1")]
+    pos_C1 = df_C1[colHeader].unique()
+    df_C2 = dfInCartNew[(dfInCartNew["_atom_site_label"]=="C2")]
+    pos_C2 = df_C2[colHeader].unique()
+    dfInCartNew = dfInCartNew.drop(dfInCartNew[dfInCartNew[colHeader]==max(pos_C1)].index)
+    dfInCartNew = dfInCartNew.drop(dfInCartNew[dfInCartNew[colHeader]==max(pos_C2)].index)
+    return dfInCartNew 
 
 def modifyLength(df:pd.DataFrame,currentDim:List[float],newDim:List[float]):
     dfInCart = fractToCart(df,currentDim)
@@ -97,21 +134,28 @@ def modifyLength(df:pd.DataFrame,currentDim:List[float],newDim:List[float]):
     y_C1 = df_C1["_atom_site_fract_y"].unique()
     d_C1_y = np.diff(y_C1[:2])[0]
 
-    df_C2 = dfInCart[(dfInCart["_atom_site_label"]=="C2")]
-    x_C2 = df_C2["_atom_site_fract_x"].unique()
-    maxDf_C1C3_x = pd.DataFrame(dfInCart[dfInCart["_atom_site_fract_x"]==max(x_C1)])
-    maxDf_C2C4_x = pd.DataFrame(dfInCart[dfInCart["_atom_site_fract_x"]==max(x_C2)])
-    maxDf_C1C3_x["_atom_site_fract_x"] = maxDf_C1C3_x["_atom_site_fract_x"] + d_C1_x
-    maxDf_C2C4_x["_atom_site_fract_x"] = maxDf_C2C4_x["_atom_site_fract_x"] + d_C1_x
+    # print(d_C1_y)
+    dfInCartNew = dfInCart
+    nx = int((newDim[0]-currentDim[0])/d_C1_x)
+    if nx > 1:
+        for n in range(nx):
+            dfInCartNew = increaseXLen(dfInCartNew,d_C1_x)
+    elif nx < 0:
+        for n in range(abs(nx)):
+            dfInCartNew = decreaseLen(dfInCartNew)
 
-    dfInCartNew = pd.concat([dfInCart,maxDf_C1C3_x,maxDf_C2C4_x])
+    ny = int((newDim[1]-currentDim[1])/round(d_C1_y))
+    if ny > 1:
+        for n in range(ny):
+            dfInCartNew = increaseYLen(dfInCartNew,d_C1_y)
+    elif ny < 0:
+        for n in range(abs(ny)):
+            dfInCartNew = decreaseLen(dfInCartNew,direction='y')
+    
     df_new = cartToFract(dfInCartNew,newDim)
-
     df_new = df_new.round({"_atom_site_fract_x":6,"_atom_site_fract_y":6,"_atom_site_fract_z":6})
     convert_dict = {"_atom_site_fract_x":str,"_atom_site_fract_y":str,"_atom_site_fract_z":str}
     df_new.iloc[:,2:5]=df_new.iloc[:,2:5].astype(convert_dict)
-
-    # print(df_new.dtypes)
     return df_new
 
     
@@ -136,7 +180,7 @@ def modifyLength(df:pd.DataFrame,currentDim:List[float],newDim:List[float]):
 cifData = readFile("graphite-sheet-single_layer.cif")
 currentDim = unitCellDimension(cifData)
 df = createDf(cifData)
-newDf = modifyLength(df,currentDim,[41.82,25.56,25.56])
+newDf = modifyLength(df,currentDim,[2.46*14,4.26*8,25.56])
 newCifData = createNewData(newDf,cifData)
-finalCifData = changeUnitCellParams(newCifData,[41.82,25.56,25.56])
-writeFile("graphite-sheet-single_layer_increased_x.cif",finalCifData)
+finalCifData = changeUnitCellParams(newCifData,[2.46*14,4.26*8,25.56])
+writeFile("graphite-sheet-single_layer_increased_x-2_y+2.cif",finalCifData)
