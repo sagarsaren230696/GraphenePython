@@ -180,7 +180,8 @@ def modifyLength(df:pd.DataFrame,currentDim:List[float],newDim:List[float]):
 cifData = readFile("graphite-sheet-single_layer.cif")
 currentDim = unitCellDimension(cifData)
 df = createDf(cifData)
-newDf = modifyLength(df,currentDim,[2.46*14,4.26*8,25.56])
+dims = [49.2,46.86,50]
+newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
 newCifData = createNewData(newDf,cifData)
-finalCifData = changeUnitCellParams(newCifData,[2.46*14,4.26*8,25.56])
-writeFile("graphite-sheet-single_layer_increased_x-2_y+2.cif",finalCifData)
+finalCifData = changeUnitCellParams(newCifData,dims)
+writeFile("graphite-sheet-single_layer_1.cif",finalCifData)
