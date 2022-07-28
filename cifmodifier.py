@@ -49,6 +49,7 @@ def removeLayer(df:pd.DataFrame,columnName:str,condVal:float):
     return newDf
 
 def changeLayerPos(df:pd.DataFrame,columnName:str,changeVal:List[float]):
+    """For single layer"""
     oldVal, newVal = changeVal
     df[columnName] = df[columnName].replace(oldVal,newVal)
     return df
@@ -153,7 +154,7 @@ def modifyLength(df:pd.DataFrame,currentDim:List[float],newDim:List[float]):
             dfInCartNew = decreaseLen(dfInCartNew,direction='y')
     
     df_new = cartToFract(dfInCartNew,newDim)
-    df_new = df_new.round({"_atom_site_fract_x":6,"_atom_site_fract_y":6,"_atom_site_fract_z":6})
+    df_new = df_new.round({"_atom_site_fract_x":6,"_atom_site_fract_y":6,"_atom_site_fract_z":6}) # round all elements column-wise
     convert_dict = {"_atom_site_fract_x":str,"_atom_site_fract_y":str,"_atom_site_fract_z":str}
     df_new.iloc[:,2:5]=df_new.iloc[:,2:5].astype(convert_dict)
     return df_new
@@ -169,6 +170,16 @@ def addLayers(df:pd.DataFrame,numOfLayers:int,spacing:float,zLen:float)->pd.Data
     df_new = pd.concat(dfNewList,axis=0)
     return df_new
 
+def createMiddlePore(df:pd.DataFrame,zLen,cutOff:float,poreSize:float) -> pd.DataFrame:
+    bottomDf = df.copy()
+    topDf = df.copy()
+    bottomDf["_atom_site_fract_z"] = bottomDf["_atom_site_fract_z"].apply(lambda val: str(round(float(val)+ cutOff/zLen,6))) 
+    maxZbottom = max([float(i) for i in bottomDf["_atom_site_fract_z"].unique()])
+    print(maxZbottom)
+    topDf["_atom_site_fract_z"] = topDf["_atom_site_fract_z"].apply(lambda val: str(round(float(val)+ maxZbottom +poreSize/zLen,6))) 
+    dfNewList = [bottomDf,topDf]
+    dfNew = pd.concat(dfNewList,axis=0)
+    return dfNew
 
 # cifData = readFile("graphite-sheet-8.52A.cif")
 # df = createDf(cifData)
@@ -190,12 +201,25 @@ def addLayers(df:pd.DataFrame,numOfLayers:int,spacing:float,zLen:float)->pd.Data
 cifData = readFile("graphite-sheet-single_layer.cif")
 currentDim = unitCellDimension(cifData)
 df = createDf(cifData)
-dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,7+3.35*2]
+# dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,7+3.35*2]
+dims = [int(40/2.46)*2.46,int(40/4.26)*4.26,7+3.35*2]
 newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
 newestDf = addLayers(newDf,2,3.35,dims[2])
 newCifData = createNewData(newestDf,cifData)
 finalCifData = changeUnitCellParams(newCifData,dims)
 writeFile("graphite-sheet_3-layers_7A.cif",finalCifData)
+
+cutOff,spacing,numOfLayers,poreSize = [9,3.35,3,7]
+cifData = readFile("graphite-sheet_3-layers_7A.cif")
+currentDim = unitCellDimension(cifData)
+newZ = cutOff*2+spacing*(numOfLayers-1)*2+poreSize
+newDim = currentDim[:2] + [newZ]
+df = createDf(cifData)
+df["_atom_site_fract_z"] = df["_atom_site_fract_z"].apply(lambda z:str(float(z)*currentDim[2]/newDim[2]))
+newMiddlePoreDf = createMiddlePore(df,newZ,cutOff,poreSize)
+newCifData = createNewData(newMiddlePoreDf,cifData)
+finalCifData = changeUnitCellParams(newCifData,newDim)
+writeFile("graphite-sheet_3-layers_7A_middlePore.cif",finalCifData)
 
 ### Creating multilayer graphite
 # cifData = readFile("graphite-sheet-single_layer.cif")
