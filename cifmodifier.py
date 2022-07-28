@@ -158,7 +158,17 @@ def modifyLength(df:pd.DataFrame,currentDim:List[float],newDim:List[float]):
     df_new.iloc[:,2:5]=df_new.iloc[:,2:5].astype(convert_dict)
     return df_new
 
-    
+def addLayers(df:pd.DataFrame,numOfLayers:int,spacing:float,zLen:float)->pd.DataFrame:
+    """Apply to single layered graphene"""
+    zFractPos = [(i+1)*spacing/zLen for i in range(numOfLayers)]
+    dfNewList = [df]
+    for count, zPos in enumerate(zFractPos):
+        dfTemp = df.copy()
+        dfTemp["_atom_site_fract_z"] = str(zPos)
+        dfNewList.append(dfTemp)
+    df_new = pd.concat(dfNewList,axis=0)
+    return df_new
+
 
 # cifData = readFile("graphite-sheet-8.52A.cif")
 # df = createDf(cifData)
@@ -180,8 +190,20 @@ def modifyLength(df:pd.DataFrame,currentDim:List[float],newDim:List[float]):
 cifData = readFile("graphite-sheet-single_layer.cif")
 currentDim = unitCellDimension(cifData)
 df = createDf(cifData)
-dims = [49.2,46.86,50]
+dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,7+3.35*2]
 newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
-newCifData = createNewData(newDf,cifData)
+newestDf = addLayers(newDf,2,3.35,dims[2])
+newCifData = createNewData(newestDf,cifData)
 finalCifData = changeUnitCellParams(newCifData,dims)
-writeFile("graphite-sheet-single_layer_1.cif",finalCifData)
+writeFile("graphite-sheet_3-layers_7A.cif",finalCifData)
+
+### Creating multilayer graphite
+# cifData = readFile("graphite-sheet-single_layer.cif")
+# currentDim = unitCellDimension(cifData)
+# df = createDf(cifData)
+# dims = [39.36,38.34,3.35*2+40]
+# newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
+# newestDf = addLayers(newDf,2,3.35,dims[2])
+# newCifData = createNewData(newestDf,cifData)
+# finalCifData = changeUnitCellParams(newCifData,dims)
+# writeFile(f"graphite-sheet_3-layers_40A.cif",finalCifData)
