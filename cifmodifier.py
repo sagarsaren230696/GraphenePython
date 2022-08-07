@@ -165,7 +165,7 @@ def addLayers(df:pd.DataFrame,numOfLayers:int,spacing:float,zLen:float)->pd.Data
     dfNewList = [df]
     for count, zPos in enumerate(zFractPos):
         dfTemp = df.copy()
-        dfTemp["_atom_site_fract_z"] = str(zPos)
+        dfTemp["_atom_site_fract_z"] = str(round(zPos,6))
         dfNewList.append(dfTemp)
     df_new = pd.concat(dfNewList,axis=0)
     return df_new
@@ -180,6 +180,20 @@ def createMiddlePore(df:pd.DataFrame,zLen,cutOff:float,poreSize:float) -> pd.Dat
     dfNewList = [bottomDf,topDf]
     dfNew = pd.concat(dfNewList,axis=0)
     return dfNew
+
+def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float=7):
+    blockSphereRadius = spacing/2
+    xSpheres = np.asarray([i for i in np.arange(blockSphereRadius,dims[0],blockSphereRadius)])
+    ySpheres = np.asarray([i for i in np.arange(blockSphereRadius,dims[1],blockSphereRadius)])
+    
+    xSpheres,ySpheres = np.meshgrid(xSpheres,ySpheres)
+    with open(f"graphite-sheet_{nLayers}-layers_{poreSize}A.block","w") as f:
+        f.write(f"{xSpheres.shape[0]*xSpheres.shape[1]*(nLayers-1)}\n")
+        for n in range(nLayers-1):
+            for xVal,yVal in zip(xSpheres,ySpheres):
+                lines = [f"{x/dims[0]:.3f}\t{y/dims[1]:.3f}\t{(spacing/2+n*spacing)/dims[2]:.3f}\t{spacing/2:.3f}\n" for x,y in zip(xVal,yVal)]
+                f.writelines(lines)
+
 
 # cifData = readFile("graphite-sheet-8.52A.cif")
 # df = createDf(cifData)
@@ -201,25 +215,29 @@ def createMiddlePore(df:pd.DataFrame,zLen,cutOff:float,poreSize:float) -> pd.Dat
 cifData = readFile("graphite-sheet-single_layer.cif")
 currentDim = unitCellDimension(cifData)
 df = createDf(cifData)
-# dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,7+3.35*2]
-dims = [int(40/2.46)*2.46,int(40/4.26)*4.26,7+3.35*2]
-newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
-newestDf = addLayers(newDf,2,3.35,dims[2])
-newCifData = createNewData(newestDf,cifData)
-finalCifData = changeUnitCellParams(newCifData,dims)
-writeFile("graphite-sheet_3-layers_7A.cif",finalCifData)
+poreSizes = [8.9,18.5,27.9]
+# dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,round(27.9+3.35*2,2)]
+# for poreSize in poreSizes:
+#     dims = [round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(poreSize+3.35*2,2)]
+#     newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
+#     newestDf = addLayers(newDf,2,3.35,dims[2])
+#     newCifData = createNewData(newestDf,cifData)
+#     finalCifData = changeUnitCellParams(newCifData,dims)
+#     writeFile(f"graphite-sheet_3-layers_{poreSize}A.cif",finalCifData)
 
-cutOff,spacing,numOfLayers,poreSize = [9,3.35,3,7]
-cifData = readFile("graphite-sheet_3-layers_7A.cif")
-currentDim = unitCellDimension(cifData)
-newZ = cutOff*2+spacing*(numOfLayers-1)*2+poreSize
-newDim = currentDim[:2] + [newZ]
-df = createDf(cifData)
-df["_atom_site_fract_z"] = df["_atom_site_fract_z"].apply(lambda z:str(float(z)*currentDim[2]/newDim[2]))
-newMiddlePoreDf = createMiddlePore(df,newZ,cutOff,poreSize)
-newCifData = createNewData(newMiddlePoreDf,cifData)
-finalCifData = changeUnitCellParams(newCifData,newDim)
-writeFile("graphite-sheet_3-layers_7A_middlePore.cif",finalCifData)
+poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
+
+# cutOff,spacing,numOfLayers,poreSize = [9,3.35,3,7]
+# cifData = readFile("graphite-sheet_3-layers_7A.cif")
+# currentDim = unitCellDimension(cifData)
+# newZ = cutOff*2+spacing*(numOfLayers-1)*2+poreSize
+# newDim = currentDim[:2] + [newZ]
+# df = createDf(cifData)
+# df["_atom_site_fract_z"] = df["_atom_site_fract_z"].apply(lambda z:str(float(z)*currentDim[2]/newDim[2]))
+# newMiddlePoreDf = createMiddlePore(df,newZ,cutOff,poreSize)
+# newCifData = createNewData(newMiddlePoreDf,cifData)
+# finalCifData = changeUnitCellParams(newCifData,newDim)
+# writeFile("graphite-sheet_3-layers_7A_middlePore.cif",finalCifData)
 
 ### Creating multilayer graphite
 # cifData = readFile("graphite-sheet-single_layer.cif")
