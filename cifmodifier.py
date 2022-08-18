@@ -5,6 +5,7 @@ from typing import Iterable, List
 from venv import create
 import numpy as np
 import pandas as pd
+import math
 
 def readFile(fileName) -> Iterable[str]:
     with open(fileName) as f:
@@ -81,6 +82,7 @@ def writeFile(fileName,newData:Iterable[str]):
         f.writelines(newData)
 
 def fractToCart(df:pd.DataFrame,dimList:List[float]):
+    """Returns df in float"""
     dfNew = df.copy()
     for i,dim in enumerate(dimList):
         dfNew.iloc[:,i+2] = pd.to_numeric(dfNew.iloc[:,i+2])*np.float64(dim)
@@ -181,6 +183,48 @@ def createMiddlePore(df:pd.DataFrame,zLen,cutOff:float,poreSize:float) -> pd.Dat
     dfNew = pd.concat(dfNewList,axis=0)
     return dfNew
 
+def addFunctionalGroups(df:pd.DataFrame,dims:List[float],fg:List[str],fgDims:List[float],fgCharge:List[float])->pd.DataFrame:
+    df_cart=fractToCart(df,dims) 
+    layers = df_cart["_atom_site_fract_z"].apply(lambda val: round(float(val),1)).unique()[2:4]
+    fg_layers = [layers[0]+fgDims[0],layers[1]-fgDims[0]] # For Carbonyl
+    def find_nearest(array, value):
+        # array = np.asarray(array)
+        idx = (np.abs(array - value)).argmin()
+        return [idx,array[idx]]
+    ## At fixed y
+    yLoc = find_nearest(df['_atom_site_fract_y'].apply(lambda val: float(val)).values,0.5)[1]
+    fgBase = df_cart.loc[np.isclose(df['_atom_site_fract_y'].apply(lambda val: float(val)),yLoc)]
+    print(fgBase['_atom_site_fract_z'].unique())
+    fgBase1 = fgBase.loc[np.isclose(fgBase['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[0])]
+    fgBase2 = fgBase.loc[np.isclose(fgBase['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[1])]
+    fgBase1.loc[:,"_atom_site_fract_z"] = round(fg_layers[0],6)
+    fgBase2.loc[:,"_atom_site_fract_z"] = round(fg_layers[1],6)
+    fgBase = [fgBase1,fgBase2]
+    fgBase = pd.concat(fgBase,axis=0)
+    fgBase.iloc[:,0] = fg[0]
+    fgBase.iloc[:,1] = fg[1]
+    
+    # delete alternate rows 
+    fgBase = fgBase.iloc[::2]
+    print(fgBase['_atom_site_fract_z'].shape)
+
+    # change charge
+    fgBase.iloc[:,-1] = str(round(fgCharge[1],4))
+    for index, row in fgBase.iterrows():
+        print(index)
+        df_cart.iloc[index,-1] = str(round(fgCharge[0],4))
+        df_cart.iloc[index,0] = "C_FG"
+
+    df_cart = [df_cart,fgBase]
+    df_cart = pd.concat(df_cart,axis=0)
+    df_new = cartToFract(df_cart,dims)
+    print(df_new["_atom_site_fract_z"].unique())
+    convert_dict = {"_atom_site_fract_x":str,"_atom_site_fract_y":str,"_atom_site_fract_z":str}
+    df_new.iloc[:,2:5]=df_new.iloc[:,2:5].astype(convert_dict)
+
+    return df_new
+
+
 def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float=7):
     blockSphereRadius = spacing/2
     xSpheres = np.asarray([i for i in np.arange(blockSphereRadius,dims[0],blockSphereRadius)])
@@ -212,20 +256,20 @@ def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float
 # writeFile("graphite-sheet-single_layer-0.5.cif",newCifData)
 
 ### Increasing unit cell length along x axis
-cifData = readFile("graphite-sheet-single_layer.cif")
-currentDim = unitCellDimension(cifData)
-df = createDf(cifData)
-poreSizes = [8.9,18.5,27.9]
-# dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,round(27.9+3.35*2,2)]
+# cifData = readFile("graphite-sheet-single_layer.cif")
+# currentDim = unitCellDimension(cifData)
+# df = createDf(cifData)
+# poreSizes = [8.9,18.5,27.9]
+# # dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,round(27.9+3.35*2,2)]
 # for poreSize in poreSizes:
-#     dims = [round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(poreSize+3.35*2,2)]
+#     dims = [round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(poreSize,2)] #+3.35*2
 #     newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
-#     newestDf = addLayers(newDf,2,3.35,dims[2])
-#     newCifData = createNewData(newestDf,cifData)
+#     # newestDf = addLayers(newDf,2,3.35,dims[2])
+#     newCifData = createNewData(newDf,cifData)
 #     finalCifData = changeUnitCellParams(newCifData,dims)
-#     writeFile(f"graphite-sheet_3-layers_{poreSize}A.cif",finalCifData)
+#     writeFile(f"graphite-sheet_single-layers_{poreSize}A.cif",finalCifData)
 
-poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
+# poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
 # cutOff,spacing,numOfLayers,poreSize = [9,3.35,3,7]
 # cifData = readFile("graphite-sheet_3-layers_7A.cif")
@@ -238,6 +282,16 @@ poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(
 # newCifData = createNewData(newMiddlePoreDf,cifData)
 # finalCifData = changeUnitCellParams(newCifData,newDim)
 # writeFile("graphite-sheet_3-layers_7A_middlePore.cif",finalCifData)
+
+### Add functional groups
+cifData = readFile("graphite-sheet_3-layers_7A_middlePore.cif")
+currentDim = unitCellDimension(cifData)
+df = createDf(cifData)
+newDf = addFunctionalGroups(df,currentDim,["O_CO","O"],[1.433],[0.5,-0.5])
+newCifData = createNewData(newDf,cifData)
+writeFile("graphite-sheet_3-layers_7A_middlePore_FG-CO.cif",newCifData)
+
+
 
 ### Creating multilayer graphite
 # cifData = readFile("graphite-sheet-single_layer.cif")
