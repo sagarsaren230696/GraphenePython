@@ -252,8 +252,8 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
     fgBaseX = fgBase["_atom_site_fract_x"].unique()
     fgBaseY = fgBase["_atom_site_fract_y"].unique()
     
-    fgBaseX = fgBaseX[::4]
-    fgBaseY = fgBaseY[::4]
+    fgBaseX = fgBaseX[::8]
+    fgBaseY = fgBaseY[::6]
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)]
     fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)]
@@ -284,7 +284,64 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
             fgBaseH.iloc[idx,3]=fgBaseH.iloc[idx,3]+d_OH_proj*np.sin(anglePlane)
         
         fgBaseH.iloc[:,-1] = str(round(float(dataDict["charges"][2]),4))
+    
+    elif nameOfFG == "COOH":
+        theta1, theta2, theta3 = np.asarray([float(ang)*np.pi/180 for ang in dataDict["angles"]])
+        l2,l3,l4 = np.asarray([float(lens) for lens in dataDict["lengths"][1:]])
+        
+        fg_layers_CO1_z = [fg_layers[0]+l2*np.sin(theta1-np.pi/2),fg_layers[1]-l2*np.sin(theta1-np.pi/2)]
+        fgBaseCO11 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[0]])]
+        fgBaseCO12 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([round(fg_layers[1],2)])]
+        fgBaseCO11.loc[:,"_atom_site_fract_z"] = round(fg_layers_CO1_z[0],6)
+        fgBaseCO12.loc[:,"_atom_site_fract_z"] = round(fg_layers_CO1_z[1],6)
 
+        fgBaseCO1 = [fgBaseCO11,fgBaseCO12]
+        fgBaseCO1 = pd.concat(fgBaseCO1,axis=0)
+        fgBaseCO1.iloc[:,0] = dataDict["atoms"][2]+f"_{nameOfFG}_d"
+        fgBaseCO1.iloc[:,1] = dataDict["atoms"][2]
+        
+
+        fg_layers_CO2_z = [fg_layers[0]+l3*np.sin(1.5*np.pi-theta1-theta2),fg_layers[1]-l3*np.sin(1.5*np.pi-theta1-theta2)]
+        fgBaseCO21 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[0]])]
+        fgBaseCO22 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([round(fg_layers[1],2)])]
+        fgBaseCO21.loc[:,"_atom_site_fract_z"] = round(fg_layers_CO2_z[0],6)
+        fgBaseCO22.loc[:,"_atom_site_fract_z"] = round(fg_layers_CO2_z[1],6)
+
+        fgBaseCO2 = [fgBaseCO21,fgBaseCO22]
+        fgBaseCO2 = pd.concat(fgBaseCO2,axis=0)
+        fgBaseCO2.iloc[:,0] = dataDict["atoms"][3]+f"_{nameOfFG}"
+        fgBaseCO2.iloc[:,1] = dataDict["atoms"][3]
+
+        fg_layers_H_z = [fg_layers[0]+l3*np.sin(1.5*np.pi-theta1-theta2)+l4*np.sin(np.pi/2+theta3-theta1-theta2),fg_layers[1]-l3*np.sin(1.5*np.pi-theta1-theta2)-l4*np.sin(np.pi/2+theta3-theta1-theta2)] # For COOH
+        fgBaseH1 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[0]])]
+        fgBaseH2 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([round(fg_layers[1],2)])]
+        fgBaseH1.loc[:,"_atom_site_fract_z"] = round(fg_layers_H_z[0],6)
+        fgBaseH2.loc[:,"_atom_site_fract_z"] = round(fg_layers_H_z[1],6)
+
+        fgBaseH = [fgBaseH1,fgBaseH2]
+        fgBaseH = pd.concat(fgBaseH,axis=0)
+        fgBaseH.iloc[:,0] = dataDict["atoms"][4]+f"_{nameOfFG}"
+        fgBaseH.iloc[:,1] = dataDict["atoms"][4]
+
+
+        anglePlanes = np.random.uniform(low=0.0,high=np.pi,size=fgBaseH.shape[0])# anglePlane = np.pi/4
+        # anglePlanes = np.repeat([0],fgBaseH.shape[0])
+        l2Proj = l2*np.cos(theta1-np.pi/2)
+        l3Proj = l3*np.cos(1.5*np.pi-theta1-theta2)
+        l4Proj = l3Proj+l4*np.cos(np.pi/2+theta3-theta1-theta2)
+        for idx,anglePlane in enumerate(anglePlanes):
+            fgBaseCO1.iloc[idx,2]=fgBaseCO1.iloc[idx,2]-l2Proj*np.cos(anglePlane)
+            fgBaseCO1.iloc[idx,3]=fgBaseCO1.iloc[idx,3]+l2Proj*np.sin(anglePlane)
+
+            fgBaseCO2.iloc[idx,2]=fgBaseCO2.iloc[idx,2]+l3Proj*np.cos(anglePlane)
+            fgBaseCO2.iloc[idx,3]=fgBaseCO2.iloc[idx,3]-l3Proj*np.sin(anglePlane)
+
+            fgBaseH.iloc[idx,2]=fgBaseH.iloc[idx,2]+l4Proj*np.cos(anglePlane)
+            fgBaseH.iloc[idx,3]=fgBaseH.iloc[idx,3]-l4Proj*np.sin(anglePlane)
+
+        fgBaseCO1.iloc[:,-1] = str(round(float(dataDict["charges"][2]),4))
+        fgBaseCO2.iloc[:,-1] = str(round(float(dataDict["charges"][3]),4))
+        fgBaseH.iloc[:,-1] = str(round(float(dataDict["charges"][4]),4))
 
     # change charge
     fgBase.iloc[:,-1] = str(round(float(dataDict["charges"][1]),4))
@@ -295,6 +352,8 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
 
     if nameOfFG == "OH":
         df_cart = [df_cart,fgBase,fgBaseH]
+    elif nameOfFG == "COOH":
+        df_cart = [df_cart,fgBase,fgBaseCO1,fgBaseCO2,fgBaseH]
     else:
         df_cart = [df_cart,fgBase]
     
@@ -380,9 +439,9 @@ for poreSize in poreSizes:
     cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif")
     currentDim = unitCellDimension(cifData)
     df = createDf(cifData)
-    newDf = addFunctionalGroups2(df,currentDim,nameOfFG="OH")
+    newDf = addFunctionalGroups2(df,currentDim,nameOfFG="COOH")
     newCifData = createNewData(newDf,cifData)
-    writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-OH.cif",newCifData)
+    writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-COOH.cif",newCifData)
 
 ### Creating multilayer graphite
 # cifData = readFile("graphite-sheet-single_layer.cif")
