@@ -375,12 +375,14 @@ def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float
 # newCifData = createNewData(newDf,cifData)
 # writeFile("graphite-sheet_3-layers_7A_middlePore_FG-CO.cif",newCifData)
 
-cifData = readFile("graphite-sheet_3-layers_8.9A_middlePore.cif")
-currentDim = unitCellDimension(cifData)
-df = createDf(cifData)
-newDf = addFunctionalGroups2(df,currentDim,nameOfFG="OH")
-newCifData = createNewData(newDf,cifData)
-writeFile("graphite-sheet_3-layers_8.9A_middlePore_FG-OH.cif",newCifData)
+poreSizes = [7,8.9,18.5,27.9]
+for poreSize in poreSizes:
+    cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif")
+    currentDim = unitCellDimension(cifData)
+    df = createDf(cifData)
+    newDf = addFunctionalGroups2(df,currentDim,nameOfFG="OH")
+    newCifData = createNewData(newDf,cifData)
+    writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-OH.cif",newCifData)
 
 ### Creating multilayer graphite
 # cifData = readFile("graphite-sheet-single_layer.cif")
