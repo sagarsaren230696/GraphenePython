@@ -191,34 +191,116 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],fg:List[str],fgDims:Lis
         # array = np.asarray(array)
         idx = (np.abs(array - value)).argmin()
         return [idx,array[idx]]
-    ## At fixed y
-    yLoc = find_nearest(df['_atom_site_fract_y'].apply(lambda val: float(val)).values,0.5)[1]
-    fgBase = df_cart.loc[np.isclose(df['_atom_site_fract_y'].apply(lambda val: float(val)),yLoc)]
-    print(fgBase['_atom_site_fract_z'].unique())
-    fgBase1 = fgBase.loc[np.isclose(fgBase['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[0])]
-    fgBase2 = fgBase.loc[np.isclose(fgBase['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[1])]
+    
+    fgBase1 = df_cart.loc[np.isclose(df_cart['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[0])]
+    fgBase2 = df_cart.loc[np.isclose(df_cart['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[1])]
     fgBase1.loc[:,"_atom_site_fract_z"] = round(fg_layers[0],6)
     fgBase2.loc[:,"_atom_site_fract_z"] = round(fg_layers[1],6)
     fgBase = [fgBase1,fgBase2]
     fgBase = pd.concat(fgBase,axis=0)
     fgBase.iloc[:,0] = fg[0]
     fgBase.iloc[:,1] = fg[1]
+
+    fgBaseX = fgBase["_atom_site_fract_x"].unique()
+    fgBaseY = fgBase["_atom_site_fract_y"].unique()
+    print(len(fgBaseX),len(fgBaseY))
     
-    # delete alternate rows 
-    fgBase = fgBase.iloc[::2]
-    print(fgBase['_atom_site_fract_z'].shape)
+    fgBaseX = fgBaseX[::4]
+    fgBaseY = fgBaseY[::4]
+
+    print(len(fgBaseX),len(fgBaseY))
+    fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)]
+    fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)]
 
     # change charge
     fgBase.iloc[:,-1] = str(round(fgCharge[1],4))
     for index, row in fgBase.iterrows():
-        print(index)
+        # print(index)
         df_cart.iloc[index,-1] = str(round(fgCharge[0],4))
         df_cart.iloc[index,0] = "C_FG"
 
     df_cart = [df_cart,fgBase]
     df_cart = pd.concat(df_cart,axis=0)
     df_new = cartToFract(df_cart,dims)
-    print(df_new["_atom_site_fract_z"].unique())
+    # print(df_new["_atom_site_fract_z"].unique())
+    convert_dict = {"_atom_site_fract_x":str,"_atom_site_fract_y":str,"_atom_site_fract_z":str}
+    df_new.iloc[:,2:5]=df_new.iloc[:,2:5].astype(convert_dict)
+
+    return df_new
+
+def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.DataFrame:
+    with open(f"{nameOfFG}.dat") as f:
+        data = f.readlines()
+    dataDict = {}
+    for dat in data:
+        dat = dat.replace('\n','')
+        datList = dat.split(',')
+        dataDict[datList[0]]=datList[1:]
+    df_cart=fractToCart(df,dims) 
+    layers = df_cart["_atom_site_fract_z"].apply(lambda val: round(float(val),1)).unique()[2:4]
+    fg_layers = [layers[0]+float(dataDict["lengths"][0]),layers[1]-float(dataDict["lengths"][0])] # For Carbonyl
+    
+    fgBase1 = df_cart.loc[np.isclose(df_cart['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[0])]
+    fgBase2 = df_cart.loc[np.isclose(df_cart['_atom_site_fract_z'].apply(lambda val: round(val,1)),layers[1])]
+    fgBase1.loc[:,"_atom_site_fract_z"] = round(fg_layers[0],6)
+    fgBase2.loc[:,"_atom_site_fract_z"] = round(fg_layers[1],6)
+    fgBase = [fgBase1,fgBase2]
+    fgBase = pd.concat(fgBase,axis=0)
+    fgBase.iloc[:,0] = dataDict["atoms"][1]+f"_{nameOfFG}"
+    fgBase.iloc[:,1] = dataDict["atoms"][1]
+
+    fgBaseX = fgBase["_atom_site_fract_x"].unique()
+    fgBaseY = fgBase["_atom_site_fract_y"].unique()
+    
+    fgBaseX = fgBaseX[::4]
+    fgBaseY = fgBaseY[::4]
+
+    fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)]
+    fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)]
+
+    if nameOfFG=="OH":
+        angle_COH = float(dataDict["angles"][0])*np.pi/180
+        d_OH = float(dataDict["lengths"][1])
+        fg_layers_H_z = [fg_layers[0]+d_OH*np.sin(angle_COH-np.pi/2),fg_layers[1]-d_OH*np.sin(angle_COH-np.pi/2)] # For OH
+        print(layers)
+        print(fg_layers)
+        print(fg_layers_H_z)
+        fgBaseH1 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[0]])]
+        fgBaseH2 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[1]])]
+        fgBaseH1.loc[:,"_atom_site_fract_z"] = round(fg_layers_H_z[0],6)
+        fgBaseH2.loc[:,"_atom_site_fract_z"] = round(fg_layers_H_z[1],6)
+
+        fgBaseH = [fgBaseH1,fgBaseH2]
+        fgBaseH = pd.concat(fgBaseH,axis=0)
+        fgBaseH.iloc[:,0] = dataDict["atoms"][2]+f"_{nameOfFG}"
+        fgBaseH.iloc[:,1] = dataDict["atoms"][2]
+
+        anglePlanes = np.random.uniform(low=0.0,high=np.pi,size=fgBaseH.shape[0])# anglePlane = np.pi/4
+        d_OH_proj = d_OH*np.cos(angle_COH-np.pi/2)
+        for idx,anglePlane in enumerate(anglePlanes):
+            # fgBaseH.loc[:,"_atom_site_fract_x"]=fgBaseH.loc[:,"_atom_site_fract_x"].apply(lambda x_O:float(x_O)+d_OH_proj*np.cos(anglePlane))
+            # fgBaseH.loc[:,"_atom_site_fract_y"]=fgBaseH.loc[:,"_atom_site_fract_y"].apply(lambda y_O:float(y_O)+d_OH_proj*np.sin(anglePlane))
+            fgBaseH.iloc[idx,2]=fgBaseH.iloc[idx,2]+d_OH_proj*np.cos(anglePlane)
+            fgBaseH.iloc[idx,3]=fgBaseH.iloc[idx,3]+d_OH_proj*np.sin(anglePlane)
+        
+        fgBaseH.iloc[:,-1] = str(round(float(dataDict["charges"][2]),4))
+
+
+    # change charge
+    fgBase.iloc[:,-1] = str(round(float(dataDict["charges"][1]),4))
+    for index, row in fgBase.iterrows():
+        # print(index)
+        df_cart.iloc[index,-1] = str(round(float(dataDict["charges"][0]),4))
+        df_cart.iloc[index,0] = "C_FG"
+
+    if nameOfFG == "OH":
+        df_cart = [df_cart,fgBase,fgBaseH]
+    else:
+        df_cart = [df_cart,fgBase]
+    
+    df_cart = pd.concat(df_cart,axis=0)
+    df_new = cartToFract(df_cart,dims)
+    # print(df_new["_atom_site_fract_z"].unique())
     convert_dict = {"_atom_site_fract_x":str,"_atom_site_fract_y":str,"_atom_site_fract_z":str}
     df_new.iloc[:,2:5]=df_new.iloc[:,2:5].astype(convert_dict)
 
@@ -255,43 +337,50 @@ def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float
 # newCifData = createNewData(newDf,cifData)
 # writeFile("graphite-sheet-single_layer-0.5.cif",newCifData)
 
-### Increasing unit cell length along x axis
+# ### Increasing unit cell length along x axis
 # cifData = readFile("graphite-sheet-single_layer.cif")
 # currentDim = unitCellDimension(cifData)
 # df = createDf(cifData)
 # poreSizes = [8.9,18.5,27.9]
+# # poreSizes = [13.5]
 # # dims = [int(60/2.46)*2.46,int(60/4.26)*4.26,round(27.9+3.35*2,2)]
 # for poreSize in poreSizes:
-#     dims = [round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(poreSize,2)] #+3.35*2
+#     dims = [round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(poreSize+3.35*2,2)] #+3.35*2
 #     newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
-#     # newestDf = addLayers(newDf,2,3.35,dims[2])
+#     newDf = addLayers(newDf,2,3.35,dims[2])
 #     newCifData = createNewData(newDf,cifData)
 #     finalCifData = changeUnitCellParams(newCifData,dims)
-#     writeFile(f"graphite-sheet_single-layers_{poreSize}A.cif",finalCifData)
+#     writeFile(f"graphite-sheet_3-layers_{poreSize}A.cif",finalCifData)
 
-# poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
-
-# cutOff,spacing,numOfLayers,poreSize = [9,3.35,3,7]
-# cifData = readFile("graphite-sheet_3-layers_7A.cif")
-# currentDim = unitCellDimension(cifData)
-# newZ = cutOff*2+spacing*(numOfLayers-1)*2+poreSize
-# newDim = currentDim[:2] + [newZ]
-# df = createDf(cifData)
-# df["_atom_site_fract_z"] = df["_atom_site_fract_z"].apply(lambda z:str(float(z)*currentDim[2]/newDim[2]))
-# newMiddlePoreDf = createMiddlePore(df,newZ,cutOff,poreSize)
-# newCifData = createNewData(newMiddlePoreDf,cifData)
-# finalCifData = changeUnitCellParams(newCifData,newDim)
-# writeFile("graphite-sheet_3-layers_7A_middlePore.cif",finalCifData)
+# # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
+# poreSizes = [7,8.9,18.5,27.9]
+# for poreSize in poreSizes:
+#     cutOff,spacing,numOfLayers,poreSize = [12,3.35,3,poreSize]
+#     cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A.cif")
+#     currentDim = unitCellDimension(cifData)
+#     newZ = cutOff*2+spacing*(numOfLayers-1)*2+poreSize
+#     newDim = currentDim[:2] + [newZ]
+#     df = createDf(cifData)
+#     df["_atom_site_fract_z"] = df["_atom_site_fract_z"].apply(lambda z:str(float(z)*currentDim[2]/newDim[2])) #Changing the fractional z positions for new dimension
+#     newMiddlePoreDf = createMiddlePore(df,newZ,cutOff,poreSize)
+#     newCifData = createNewData(newMiddlePoreDf,cifData)
+#     finalCifData = changeUnitCellParams(newCifData,newDim)
+#     writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif",finalCifData)
 
 ### Add functional groups
-cifData = readFile("graphite-sheet_3-layers_7A_middlePore.cif")
+# cifData = readFile("graphite-sheet_3-layers_7A_middlePore.cif")
+# currentDim = unitCellDimension(cifData)
+# df = createDf(cifData)
+# newDf = addFunctionalGroups(df,currentDim,["O_CO","O"],[1.433],[0.5,-0.5])
+# newCifData = createNewData(newDf,cifData)
+# writeFile("graphite-sheet_3-layers_7A_middlePore_FG-CO.cif",newCifData)
+
+cifData = readFile("graphite-sheet_3-layers_8.9A_middlePore.cif")
 currentDim = unitCellDimension(cifData)
 df = createDf(cifData)
-newDf = addFunctionalGroups(df,currentDim,["O_CO","O"],[1.433],[0.5,-0.5])
+newDf = addFunctionalGroups2(df,currentDim,nameOfFG="OH")
 newCifData = createNewData(newDf,cifData)
-writeFile("graphite-sheet_3-layers_7A_middlePore_FG-CO.cif",newCifData)
-
-
+writeFile("graphite-sheet_3-layers_8.9A_middlePore_FG-OH.cif",newCifData)
 
 ### Creating multilayer graphite
 # cifData = readFile("graphite-sheet-single_layer.cif")
