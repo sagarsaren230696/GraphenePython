@@ -252,8 +252,8 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
     fgBaseX = fgBase["_atom_site_fract_x"].unique()
     fgBaseY = fgBase["_atom_site_fract_y"].unique()
     
-    fgBaseX = fgBaseX[::8]
-    fgBaseY = fgBaseY[::6]
+    fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4
+    fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)]
     fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)]
@@ -439,9 +439,9 @@ for poreSize in poreSizes:
     cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif")
     currentDim = unitCellDimension(cifData)
     df = createDf(cifData)
-    newDf = addFunctionalGroups2(df,currentDim,nameOfFG="COOH")
+    newDf = addFunctionalGroups2(df,currentDim,nameOfFG="CO")
     newCifData = createNewData(newDf,cifData)
-    writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-COOH.cif",newCifData)
+    writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-CO.cif",newCifData)
 
 ### Creating multilayer graphite
 # cifData = readFile("graphite-sheet-single_layer.cif")
