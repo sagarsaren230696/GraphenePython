@@ -1,4 +1,4 @@
-atoms,C,C,O,O,H
+atoms,C,C,O1,O2,H
 lengths,1.52,1.214,1.364,0.97
 angles,111,123,107
 charges,0.08,0.55,-0.5,-0.58,0.45
