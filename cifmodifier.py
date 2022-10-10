@@ -1,3 +1,4 @@
+import enum
 from lib2to3.pytree import convert
 from msilib.schema import CreateFolder
 from os import sep
@@ -448,6 +449,129 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
 
     return df_new
 
+def addFunctionalGroups3(df:pd.DataFrame,dims:List[float],ratioOfFG:List[float])->pd.DataFrame:
+    """Functional group addition for normal pore structure with mixed types of functional groups"""
+    # assert(sum(ratioOfFG)==1.0)
+    listOfFG = ["CO","OH","COOH"]
+    def getFgData(nameOfFG:str):
+        with open(f"{nameOfFG}.dat") as f:
+            data = f.readlines()
+        dataDict = {}
+        for dat in data:
+            dat = dat.replace('\n','')
+            datList = dat.split(',')
+            dataDict[datList[0]]=datList[1:]
+        return dataDict
+    dictOfFG = {}
+    for fg in listOfFG:
+        dictOfFG[fg] = getFgData(fg) # storing values of fg params with keys as the name of fg
+    
+    df_cart=fractToCart(df,dims)
+    layers = df_cart["_atom_site_fract_z"].apply(lambda val: round(float(val),1)).unique()[[0,2]]
+    fgBase1 = df_cart.loc[np.isclose(round(df_cart['_atom_site_fract_z'],1), round(layers[0],1))]
+    fgBase2 = df_cart.loc[np.isclose(round(df_cart['_atom_site_fract_z'],1), round(layers[1],1))]
+    fgBase = [fgBase1,fgBase2] 
+    fgBase = pd.concat(fgBase,axis=0)
+
+    ### Choose the base C positions of the functional group ###
+    fgBaseX = fgBase["_atom_site_fract_x"].unique()
+    fgBaseY = fgBase["_atom_site_fract_y"].unique()
+    
+    fgBaseX = fgBaseX[::8]
+    fgBaseY = fgBaseY[::6]
+
+    fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)] 
+    fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)] 
+
+    totalNumOfFgSites = len(fgBaseX)*len(fgBaseY)
+
+    ### Create the array of functional groups randomly arranged ###
+    numOfFgSites = [int(ratio*totalNumOfFgSites) for ratio in ratioOfFG]
+    numOfFgSites[-1] = numOfFgSites[-1]+(totalNumOfFgSites-sum(numOfFgSites))
+
+    listOfFG = np.reshape(listOfFG,(1,len(listOfFG))).T
+    listOfFG = np.repeat(listOfFG,numOfFgSites)
+    np.random.shuffle(listOfFG)
+    
+    ### Insert the FG ###
+    def generateFGBaseLayers(fgBase:pd.DataFrame,idx:int,newLayerz:float,fgAtomType:int,fg:str,dataDict:dict):
+        """Generate Functional group base layers"""
+        tempFgBase = fgBase.copy()
+        tempFgBase.iloc[idx,4] = round(newLayerz,6)
+        print(tempFgBase.iloc[idx,4])
+        tempFgBase.iloc[idx,0] = dataDict["atoms"][fgAtomType]+f"_{fg}" # Changing the name of the atom with the FG base layer atom
+        atom = re.split('(\d+)', dataDict["atoms"][fgAtomType])[0] # To get only the atom name
+        tempFgBase.iloc[idx,1] = atom # Changing the type of the atom with the FG base layer type of the atom
+        tempFgBase.iloc[idx,-1] = str(round(float(dataDict["charges"][fgAtomType]),4))
+        return tempFgBase.iloc[idx,:]
+
+    newFgBase = fgBase.copy()[0:0] ## Creating empty dataframe for storing all FGs
+
+    fgBase = fgBase.reset_index(drop=True)
+    print(fgBase.index)
+    for count,(index,row) in enumerate(fgBase.iterrows()):
+        netCount = count if count < int(fgBase.shape[0]/2) else count-int(fgBase.shape[0]/2)
+        fg = listOfFG[netCount]
+        dataDict = dictOfFG[fg]
+        df_cart.iloc[index,-1] = str(round(float(dataDict["charges"][0]),4))
+        df_cart.iloc[index,0] = f"C_Base_{fg}"
+        fg_layers = [layers[0]-float(dataDict["lengths"][0]),layers[1]+float(dataDict["lengths"][0])]
+        fg_layerZ = fg_layers[0] if count < int(fgBase.shape[0]/2) else fg_layers[1]
+        # print(fg_layerZ)
+        newFgBase = newFgBase.append(generateFGBaseLayers(fgBase,index,fg_layerZ,1,fg,dataDict),ignore_index=True)
+
+        if fg == "OH":
+            angle_COH = float(dataDict["angles"][0])*np.pi/180 # Getting the angle in radians
+            d_OH = float(dataDict["lengths"][1]) # Getting th length of the OH bond
+            fg_layers_H_layers = [fg_layers[0]-d_OH*np.sin(angle_COH-np.pi/2),fg_layers[1]+d_OH*np.sin(angle_COH-np.pi/2)] # For OH
+            fg_layerZ = fg_layers_H_layers[0] if count < int(fgBase.shape[0]/2) else fg_layers_H_layers[1]
+            newFgBase = newFgBase.append(generateFGBaseLayers(fgBase,index,fg_layerZ,2,fg,dataDict),ignore_index=True) 
+            d_OH_proj = d_OH*np.cos(angle_COH-np.pi/2)
+            anglePlane = np.random.random()*np.pi
+            newFgBase.iloc[-1,2]=newFgBase.iloc[-1,2]+d_OH_proj*np.cos(anglePlane)
+            newFgBase.iloc[-1,3]=newFgBase.iloc[-1,3]+d_OH_proj*np.sin(anglePlane)
+
+        if fg == "COOH":
+            theta1, theta2, theta3 = np.asarray([float(ang)*np.pi/180 for ang in dataDict["angles"]])
+            l2,l3,l4 = np.asarray([float(lens) for lens in dataDict["lengths"][1:]])
+            
+            anglePlane = np.random.random()*np.pi
+            l2Proj = l2*np.cos(theta1-np.pi/2)
+            l3Proj = l3*np.cos(1.5*np.pi-theta1-theta2)
+            l4Proj = l3Proj+l4*np.cos(np.pi/2+theta3-theta1-theta2)
+
+            fg_layers_CO1_z = [fg_layers[0]-l2*np.sin(theta1-np.pi/2),fg_layers[1]+l2*np.sin(theta1-np.pi/2)]
+            fg_layerZ = fg_layers_CO1_z[0] if count < int(fgBase.shape[0]/2) else fg_layers_CO1_z[1]
+            newFgBase =newFgBase.append(generateFGBaseLayers(fgBase,index,fg_layerZ,2,fg,dataDict),ignore_index=True) 
+            newFgBase.iloc[-1,2]=newFgBase.iloc[-1,2]-l2Proj*np.cos(anglePlane)
+            newFgBase.iloc[-1,3]=newFgBase.iloc[-1,3]+l2Proj*np.sin(anglePlane)
+
+            fg_layers_CO2_z = [fg_layers[0]-l3*np.sin(1.5*np.pi-theta1-theta2),fg_layers[1]+l3*np.sin(1.5*np.pi-theta1-theta2)]
+            fg_layerZ = fg_layers_CO2_z[0] if count < int(fgBase.shape[0]/2) else fg_layers_CO2_z[1]
+            newFgBase =newFgBase.append(generateFGBaseLayers(fgBase,index,fg_layerZ,3,fg,dataDict),ignore_index=True) 
+            newFgBase.iloc[-1,2]=newFgBase.iloc[-1,2]+l3Proj*np.cos(anglePlane)
+            newFgBase.iloc[-1,3]=newFgBase.iloc[-1,3]-l3Proj*np.sin(anglePlane)
+
+            fg_layers_H_z = [fg_layers[0]-l3*np.sin(1.5*np.pi-theta1-theta2)-l4*np.sin(np.pi/2+theta3-theta1-theta2),fg_layers[1]+l3*np.sin(1.5*np.pi-theta1-theta2)+l4*np.sin(np.pi/2+theta3-theta1-theta2)] # For COOH
+            fg_layerZ = fg_layers_H_z[0] if count < int(fgBase.shape[0]/2) else fg_layers_H_z[1]
+            newFgBase =newFgBase.append(generateFGBaseLayers(fgBase,index,fg_layerZ,4,fg,dataDict),ignore_index=True)
+            newFgBase.iloc[-1,2]=newFgBase.iloc[-1,2]+l4Proj*np.cos(anglePlane)
+            newFgBase.iloc[-1,3]=newFgBase.iloc[-1,3]-l4Proj*np.sin(anglePlane)
+
+    df_cart = [df_cart,newFgBase]
+    df_cart = pd.concat(df_cart,axis=0,ignore_index=True)
+
+    minZpos = df_cart.iloc[:,4].min()
+    df_cart.iloc[:,4] = df_cart.iloc[:,4].apply(lambda val:val+abs(minZpos))
+
+    df_new = cartToFract(df_cart,dims)
+    convert_dict = {"_atom_site_fract_x":str,"_atom_site_fract_y":str,"_atom_site_fract_z":str}
+    df_new.iloc[:,2:5]=df_new.iloc[:,2:5].astype(convert_dict)
+
+    return df_new
+
+
+
 
 def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float=7):
     blockSphereRadius = spacing/2
@@ -518,8 +642,20 @@ def addFunctionalGroupMiddlePore():
         newCifData = createNewData(newDf,cifData)
         writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-CO.cif",newCifData)
 
+
+def addMultipleFunctionalGroup():
+    """Add multiple functional groups in one structure"""
+    poreSizes = [7]#,8.9,18.5,27.9
+    for poreSize in poreSizes:
+        cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A.cif")
+        currentDim = unitCellDimension(cifData)
+        df = createDf(cifData)
+        newDf = addFunctionalGroups3(df,currentDim,ratioOfFG=[0.0,0.5,0.5])
+        newCifData = createNewData(newDf,cifData)
+        writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-OHCOOH.cif",newCifData)
 # # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
-addFunctionalGroupNormalPore("CO")
-addFunctionalGroupNormalPore("OH")
-addFunctionalGroupNormalPore("COOH")
+# addFunctionalGroupNormalPore("CO")
+# addFunctionalGroupNormalPore("OH")
+# addFunctionalGroupNormalPore("COOH")
+addMultipleFunctionalGroup()
