@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import math
 import re
+import warnings
+warnings.filterwarnings("ignore")
 
 def readFile(fileName) -> Iterable[str]:
     with open(fileName) as f:
@@ -219,10 +221,12 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.DataF
     fgBaseY = fgBase["_atom_site_fract_y"].unique() # Getting all the y positions of the base layer
     
     if nameOfFG == "COOH":
-        fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+        # fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+        fgBaseX = fgBaseX[[0,8,24]] # For non uniform
         fgBaseY = fgBaseY[::6] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
     else:
-        fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+        # fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+        fgBaseX = fgBaseX[[0,8,24]] # For non uniform
         fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)] # Selecting the chosen x-direction distribution from the base layer
@@ -500,7 +504,7 @@ def addFunctionalGroupNormalPore(nameOfFG):
         df = createDf(cifData)
         newDf = addFunctionalGroups(df,currentDim,nameOfFG=nameOfFG)
         newCifData = createNewData(newDf,cifData)
-        writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-{nameOfFG}.cif",newCifData)
+        writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-{nameOfFG}_nonUniform.cif",newCifData)
 
 
 def addFunctionalGroupMiddlePore():
