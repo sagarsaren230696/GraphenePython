@@ -498,7 +498,7 @@ def addFunctionalGroups3(df:pd.DataFrame,dims:List[float],ratioOfFG:List[float])
         """Generate Functional group base layers"""
         tempFgBase = fgBase.copy()
         tempFgBase.iloc[idx,4] = round(newLayerz,6)
-        print(tempFgBase.iloc[idx,4])
+        # print(tempFgBase.iloc[idx,4])
         tempFgBase.iloc[idx,0] = dataDict["atoms"][fgAtomType]+f"_{fg}" # Changing the name of the atom with the FG base layer atom
         atom = re.split('(\d+)', dataDict["atoms"][fgAtomType])[0] # To get only the atom name
         tempFgBase.iloc[idx,1] = atom # Changing the type of the atom with the FG base layer type of the atom
@@ -508,7 +508,7 @@ def addFunctionalGroups3(df:pd.DataFrame,dims:List[float],ratioOfFG:List[float])
     newFgBase = fgBase.copy()[0:0] ## Creating empty dataframe for storing all FGs
 
     fgBase = fgBase.reset_index(drop=True)
-    print(fgBase.index)
+    # print(fgBase.index)
     for count,(index,row) in enumerate(fgBase.iterrows()):
         netCount = count if count < int(fgBase.shape[0]/2) else count-int(fgBase.shape[0]/2)
         fg = listOfFG[netCount]
@@ -645,14 +645,14 @@ def addFunctionalGroupMiddlePore():
 
 def addMultipleFunctionalGroup():
     """Add multiple functional groups in one structure"""
-    poreSizes = [7]#,8.9,18.5,27.9
+    poreSizes = [7,8.9,18.5,27.9]#
     for poreSize in poreSizes:
         cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A.cif")
         currentDim = unitCellDimension(cifData)
         df = createDf(cifData)
-        newDf = addFunctionalGroups3(df,currentDim,ratioOfFG=[0.0,0.5,0.5])
+        newDf = addFunctionalGroups3(df,currentDim,ratioOfFG=[0.3,0.3,0.4])
         newCifData = createNewData(newDf,cifData)
-        writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-OHCOOH.cif",newCifData)
+        writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-CO_OH_COOH.cif",newCifData)
 # # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
 # addFunctionalGroupNormalPore("CO")
