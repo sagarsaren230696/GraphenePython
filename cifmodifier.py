@@ -75,7 +75,7 @@ def changeUnitCellParams(data:Iterable[str],newParams:List[float]):
     thirdPart = data[13:]
     x,y,z = newParams
     for i,param in enumerate(newParams):
-        print(secondPart[i].split())
+        # print(secondPart[i].split())
         secondPart[i] = "    ".join([secondPart[i].split()[0],str(param),'\n'])
     secondPart[-1] = "      ".join([secondPart[-1].split()[0],"{:.2f}".format(x*y*z),'\n'])
     finalData = firstPart+secondPart+thirdPart
@@ -227,7 +227,7 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.DataF
         fgBaseY = fgBaseY[::6] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
     else:
         # fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
-        fgBaseX = fgBaseX[[0,8,24]] # For non uniform
+        fgBaseX = fgBaseX[[0,4]] # For non uniform [0,8,24]
         fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)] # Selecting the chosen x-direction distribution from the base layer
@@ -588,14 +588,16 @@ def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float
 
 
 ### Increasing unit cell length along x axis
-def generateMultilayerPore():
+def generateMultilayerPore(poreSizes,xyDims=None):
     """Generate pore with a single wall containing multiple layers of graphene sheets in a unit cell"""
     cifData = readFile("graphite-sheet-single_layer.cif")
     currentDim = unitCellDimension(cifData)
     df = createDf(cifData)
-    poreSizes = [8.9,18.5,27.9]
+    if isinstance(xyDims,type(None)):
+        xyDims = [40,40]
     for poreSize in poreSizes:
-        dims = [round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(poreSize+3.35*2,2)] #+3.35*2
+        dims = [round(int(xyDims[0]/2.46)*2.46,2),round(int(xyDims[1]/4.26)*4.26,2),round(poreSize+3.35*2,2)] #+3.35*2
+        print(dims)
         newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
         newDf = addLayers(newDf,2,3.35,dims[2])
         newCifData = createNewData(newDf,cifData)
@@ -619,9 +621,9 @@ def generateMiddlePores():
         writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif",finalCifData)
 
 
-def addFunctionalGroupNormalPore(nameOfFG):
+def addFunctionalGroupNormalPore(nameOfFG,poreSizes):
     """Add functional groups"""
-    poreSizes = [7,8.9,18.5,27.9]
+    # poreSizes = [7,8.9,18.5,27.9]
     for poreSize in poreSizes:
         cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A.cif")
         currentDim = unitCellDimension(cifData)
@@ -643,9 +645,9 @@ def addFunctionalGroupMiddlePore():
         writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-CO.cif",newCifData)
 
 
-def addMultipleFunctionalGroup():
+def addMultipleFunctionalGroup(poreSizes):
     """Add multiple functional groups in one structure"""
-    poreSizes = [7,8.9,18.5,27.9]#
+    # poreSizes = [7,8.9,18.5,27.9]#
     for poreSize in poreSizes:
         cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A.cif")
         currentDim = unitCellDimension(cifData)
@@ -658,4 +660,7 @@ def addMultipleFunctionalGroup():
 # addFunctionalGroupNormalPore("CO")
 # addFunctionalGroupNormalPore("OH")
 # addFunctionalGroupNormalPore("COOH")
-addMultipleFunctionalGroup()
+# addMultipleFunctionalGroup()
+
+generateMultilayerPore([15.5],xyDims=[24,40])
+addFunctionalGroupNormalPore("OH",[15.5]) # Line 230 non uniform position changed
