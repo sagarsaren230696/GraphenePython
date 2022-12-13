@@ -337,8 +337,12 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
     fgBaseX = fgBase["_atom_site_fract_x"].unique()
     fgBaseY = fgBase["_atom_site_fract_y"].unique()
     
-    fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4
-    fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4
+    # fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4
+    # fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4
+
+    # For non uniform
+    fgBaseX = fgBaseX[[1,5,len(fgBaseX)-2,len(fgBaseX)-6]] # For non uniform finite pore model 
+    fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)]
     fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)]
@@ -637,16 +641,19 @@ def addFunctionalGroupNormalPore(nameOfFG,poreSizes,nameSuffix=""):
             writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-{nameOfFG}.cif",newCifData)
 
 
-def addFunctionalGroupMiddlePore():
+def addFunctionalGroupMiddlePore(poreSize,nameOfFG,nameSuffix=""):
     """Add functional groups for pores in the middle"""
-    poreSizes = [7,8.9,18.5,27.9]
-    for poreSize in poreSizes:
-        cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif")
-        currentDim = unitCellDimension(cifData)
-        df = createDf(cifData)
-        newDf = addFunctionalGroups2(df,currentDim,nameOfFG="CO")
-        newCifData = createNewData(newDf,cifData)
-        writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-CO.cif",newCifData)
+    # poreSizes = [7,8.9,18.5,27.9]
+    # for poreSize in poreSizes:
+    cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif")
+    currentDim = unitCellDimension(cifData)
+    df = createDf(cifData)
+    newDf = addFunctionalGroups2(df,currentDim,nameOfFG=nameOfFG)
+    newCifData = createNewData(newDf,cifData)
+    if nameSuffix != "":
+        writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-{nameOfFG}_{nameSuffix}.cif",newCifData)
+    else:
+        writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore_FG-{nameOfFG}.cif",newCifData)
 
 
 def addMultipleFunctionalGroup(poreSizes):
@@ -672,3 +679,4 @@ def addMultipleFunctionalGroup(poreSizes):
 
 """The following code is for generating a complete pore structure with both the top and bottom walls with non-uniform distribution of the OH groups, where the PBC will not be applied, which means finite pore model"""
 generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
+addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite")
