@@ -339,13 +339,13 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
     
     # fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4
     # fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4
-
     # For non uniform
-    fgBaseX = fgBaseX[[1,5,len(fgBaseX)-2,len(fgBaseX)-6]] # For non uniform finite pore model 
+    fgBaseX = fgBaseX[[0,4,len(fgBaseX)-2,len(fgBaseX)-6]] # For non uniform finite pore model 
     fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)]
     fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)]
+    print("fgBase  ", fgBase.shape)
 
     if nameOfFG=="OH":
         angle_COH = float(dataDict["angles"][0])*np.pi/180
