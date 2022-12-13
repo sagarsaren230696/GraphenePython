@@ -680,6 +680,6 @@ def addMultipleFunctionalGroup(poreSizes):
 # addFunctionalGroupNormalPore("OH",[15.5]) # Line 230 non uniform position changed
 
 """The following code is for generating a complete pore structure with both the top and bottom walls with non-uniform distribution of the OH groups, where the PBC will not be applied, which means finite pore model"""
-generateMultilayerPore([15.5],xyDims=[24,36]) 
+generateMultilayerPore([15.5],xyDims=[36,36]) 
 generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
 addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite")
