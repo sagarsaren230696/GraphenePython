@@ -354,16 +354,18 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
         print(layers)
         print(fg_layers)
         print(fg_layers_H_z)
-        fgBaseH1 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[0]])]
-        fgBaseH2 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[1]])]
+        # fgBaseH1 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[0]])]
+        # fgBaseH2 = fgBase.loc[fgBase["_atom_site_fract_z"].apply(lambda val: float(val)).isin([fg_layers[1]])]
+        fgBaseH1 = fgBase.loc[np.isclose(round(fgBase['_atom_site_fract_z'],1), round(fg_layers[0],1))]
+        fgBaseH2 = fgBase.loc[np.isclose(round(fgBase['_atom_site_fract_z'],1), round(fg_layers[1],1))]
         fgBaseH1.loc[:,"_atom_site_fract_z"] = round(fg_layers_H_z[0],6)
         fgBaseH2.loc[:,"_atom_site_fract_z"] = round(fg_layers_H_z[1],6)
+        print("fgBaseH  ",fgBaseH1.shape)
 
         fgBaseH = [fgBaseH1,fgBaseH2]
         fgBaseH = pd.concat(fgBaseH,axis=0)
         fgBaseH.iloc[:,0] = dataDict["atoms"][2]+f"_{nameOfFG}"
         fgBaseH.iloc[:,1] = dataDict["atoms"][2]
-
         anglePlanes = np.random.uniform(low=0.0,high=np.pi,size=fgBaseH.shape[0])# anglePlane = np.pi/4
         d_OH_proj = d_OH*np.cos(angle_COH-np.pi/2)
         for idx,anglePlane in enumerate(anglePlanes):
