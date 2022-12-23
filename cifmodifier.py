@@ -222,8 +222,8 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.DataF
     fgBaseY = fgBase["_atom_site_fract_y"].unique() # Getting all the y positions of the base layer
     
     if nameOfFG == "COOH":
-        # fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
-        fgBaseX = fgBaseX[[0,8,24]] # For non uniform
+        fgBaseX = fgBaseX[::6] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+        # fgBaseX = fgBaseX[[0,8,24]] # For non uniform
         fgBaseY = fgBaseY[::6] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
     else:
         # fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
@@ -672,7 +672,7 @@ def addMultipleFunctionalGroup(poreSizes):
 
 # addFunctionalGroupNormalPore("CO")
 # addFunctionalGroupNormalPore("OH")
-# addFunctionalGroupNormalPore("COOH")
+addFunctionalGroupNormalPore("COOH",[7,8.9,18.5,27.9],"new")
 # addMultipleFunctionalGroup()
 
 """The following code is for generating a pore wall with non uniform distribution of the OH groups, where the periodic boundary condition has to be used during the simulation"""
@@ -680,6 +680,6 @@ def addMultipleFunctionalGroup(poreSizes):
 # addFunctionalGroupNormalPore("OH",[15.5]) # Line 230 non uniform position changed
 
 """The following code is for generating a complete pore structure with both the top and bottom walls with non-uniform distribution of the OH groups, where the PBC will not be applied, which means finite pore model"""
-generateMultilayerPore([15.5],xyDims=[36,36]) 
-generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
-addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite")
+# generateMultilayerPore([15.5],xyDims=[36,36]) 
+# generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
+# addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite")
