@@ -341,11 +341,17 @@ def addFunctionalGroups2(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.Data
     # fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4
     # For non uniform
     fgBaseX = fgBaseX[[2,6,len(fgBaseX)-2,len(fgBaseX)-6]] # For non uniform finite pore model 
-    fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
+    # fgBaseY = fgBaseY[[2,6,len(fgBaseY)-2,len(fgBaseY)-6]] # For non uniform finite pore model 
+    fgBaseY = fgBaseY[::10] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
+    # fgBaseY = fgBaseY[:-1] # Special case to make the number of FGs 64 instead of 72, thus removing the last row
+    # func = lambda x,i :x+4 if i%2==0 else x+5
+    # a = [0]
+    # [a.append(func(a[-1],i)) for i in range(7)]
+    # fgBaseY = fgBaseY[a] # Special case to make the number of FGs 64 instead of 72,
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)]
     fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)]
-    print("fgBase  ", fgBase.shape)
+    print("fgBase  ", fgBase.shape,fgBase["_atom_site_fract_y"].unique())
 
     if nameOfFG=="OH":
         angle_COH = float(dataDict["angles"][0])*np.pi/180
@@ -670,7 +676,7 @@ def addMultipleFunctionalGroup(poreSizes):
         writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-CO_OH_COOH.cif",newCifData)
 # # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
-addFunctionalGroupNormalPore("CO",[7,8.9,18.5,27.9],"new")
+# addFunctionalGroupNormalPore("CO",[7,8.9,18.5,27.9],"new")
 # addFunctionalGroupNormalPore("OH",[7,8.9,18.5,27.9],"new")
 # addFunctionalGroupNormalPore("COOH",[7,8.9,18.5,27.9],"new")
 # addMultipleFunctionalGroup()
@@ -680,6 +686,6 @@ addFunctionalGroupNormalPore("CO",[7,8.9,18.5,27.9],"new")
 # addFunctionalGroupNormalPore("OH",[15.5]) # Line 230 non uniform position changed
 
 """The following code is for generating a complete pore structure with both the top and bottom walls with non-uniform distribution of the OH groups, where the PBC will not be applied, which means finite pore model"""
-# generateMultilayerPore([15.5],xyDims=[36,36]) 
-# generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
-# addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite")
+generateMultilayerPore([15.5],xyDims=[32,42]) 
+generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
+addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite_FGNum32")
