@@ -187,7 +187,7 @@ def createMiddlePore(df:pd.DataFrame,zLen,poreSize:float) -> pd.DataFrame:
     dfNew = pd.concat(dfNewList,axis=0)
     return dfNew
 
-def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.DataFrame:
+def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str,numOfLayers=3)->pd.DataFrame:
     """Functional group addition for normal pore structure"""
     with open(f"{nameOfFG}.dat") as f: # reading the Functional group coordinate file
         data = f.readlines()
@@ -197,16 +197,16 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str)->pd.DataF
         datList = dat.split(',')
         dataDict[datList[0]]=datList[1:]
     df_cart=fractToCart(df,dims)  # Converting from fractional to cartesian coordinates
-    layers = df_cart["_atom_site_fract_z"].apply(lambda val: round(float(val),1)).unique()[[0,2]] # Getting the bottom and top layer z position of the graphene wall
+    layers = df_cart["_atom_site_fract_z"].apply(lambda val: round(float(val),2)).unique()[[0,numOfLayers-1]] # Getting the bottom and top layer z position of the graphene wall
     fg_layers = [layers[0]-float(dataDict["lengths"][0]),layers[1]+float(dataDict["lengths"][0])] # Creating the z-position base layer of the functional group
-    
+    print(fg_layers)
     def generateFGBaseLayers(df_zLayers:pd.DataFrame,oldLayers:Iterable,newLayers:Iterable,fgAtomType:int):
         """Generate Functional group base layers"""
         # fgBase1 = df_zLayers.loc[df_zLayers["_atom_site_fract_z"].apply(lambda val: float(val)).isin([round(oldLayers[0],2)])] # Getting all the atom coordinates in the bottom layer 
         # fgBase2 = df_zLayers.loc[df_zLayers["_atom_site_fract_z"].apply(lambda val: float(val)).isin([round(oldLayers[1],2)])] # Getting all the atom coordinates in the top layer
         ################################################ HACK #################################################################
-        fgBase1 = df_zLayers.loc[np.isclose(round(df_zLayers['_atom_site_fract_z'],1), round(oldLayers[0],1))]
-        fgBase2 = df_zLayers.loc[np.isclose(round(df_zLayers['_atom_site_fract_z'],1), round(oldLayers[1],1))]
+        fgBase1 = df_zLayers.loc[np.isclose(round(df_zLayers['_atom_site_fract_z'],2), round(oldLayers[0],2))]
+        fgBase2 = df_zLayers.loc[np.isclose(round(df_zLayers['_atom_site_fract_z'],2), round(oldLayers[1],2))]
         fgBase1.loc[:,"_atom_site_fract_z"] = round(newLayers[0],6) # Replacing the z positions of the bottom layer with the FG bottom base layer z-positions
         fgBase2.loc[:,"_atom_site_fract_z"] = round(newLayers[1],6) # Replacing the z positions of the top layer with the FG top base layer z-positions
         fgBase = [fgBase1,fgBase2] 
@@ -601,7 +601,7 @@ def poreBlockGenerator(dims:List[float],nLayers:int,spacing:float,poreSize:float
 
 
 ### Increasing unit cell length along x axis
-def generateMultilayerPore(poreSizes,xyDims=None):
+def generateMultilayerPore(poreSizes,xyDims=None,numOfLayers=3):
     """Generate pore with a single wall containing multiple layers of graphene sheets in a unit cell"""
     cifData = readFile("graphite-sheet-single_layer.cif")
     currentDim = unitCellDimension(cifData)
@@ -609,13 +609,13 @@ def generateMultilayerPore(poreSizes,xyDims=None):
     if isinstance(xyDims,type(None)):
         xyDims = [40,40]
     for poreSize in poreSizes:
-        dims = [round(int(xyDims[0]/2.46)*2.46,2),round(int(xyDims[1]/4.26)*4.26,2),round(poreSize+3.35*2,2)] #+3.35*2
+        dims = [round(int(xyDims[0]/2.46)*2.46,2),round(int(xyDims[1]/4.26)*4.26,2),round(poreSize+3.35*(numOfLayers-1),2)] #+3.35*2
         print(dims)
         newDf = modifyLength(df,currentDim,dims) ## default is 16*2.46 and 6*4.26
-        newDf = addLayers(newDf,2,3.35,dims[2])
+        newDf = addLayers(newDf,numOfLayers-1,3.35,dims[2])
         newCifData = createNewData(newDf,cifData)
         finalCifData = changeUnitCellParams(newCifData,dims)
-        writeFile(f"graphite-sheet_3-layers_{poreSize}A.cif",finalCifData)
+        writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A.cif",finalCifData)
 
 def generateMiddlePores(spacing,numOfLayers,poreSize):
     """Generate Pores in the middle of the simulation box"""
@@ -634,19 +634,19 @@ def generateMiddlePores(spacing,numOfLayers,poreSize):
     writeFile(f"graphite-sheet_3-layers_{poreSize}A_middlePore.cif",finalCifData)
 
 
-def addFunctionalGroupNormalPore(nameOfFG,poreSizes,nameSuffix=""):
+def addFunctionalGroupNormalPore(nameOfFG,poreSizes,nameSuffix="",numOfLayers=3):
     """Add functional groups"""
     # poreSizes = [7,8.9,18.5,27.9]
     for poreSize in poreSizes:
-        cifData = readFile(f"graphite-sheet_3-layers_{poreSize}A.cif")
+        cifData = readFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A.cif")
         currentDim = unitCellDimension(cifData)
         df = createDf(cifData)
-        newDf = addFunctionalGroups(df,currentDim,nameOfFG=nameOfFG)
+        newDf = addFunctionalGroups(df,currentDim,nameOfFG=nameOfFG,numOfLayers=numOfLayers)
         newCifData = createNewData(newDf,cifData)
         if nameSuffix != "":
-            writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-{nameOfFG}_{nameSuffix}.cif",newCifData)
+            writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}_{nameSuffix}.cif",newCifData)
         else:
-            writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-{nameOfFG}.cif",newCifData)
+            writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}.cif",newCifData)
 
 
 def addFunctionalGroupMiddlePore(poreSize,nameOfFG,nameSuffix=""):
@@ -676,16 +676,26 @@ def addMultipleFunctionalGroup(poreSizes):
         writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-CO_OH_COOH.cif",newCifData)
 # # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
+# generateMultilayerPore([8.9],numOfLayers=2)
+addFunctionalGroupNormalPore("CO",[8.9],numOfLayers=2)
+addFunctionalGroupNormalPore("OH",[8.9],numOfLayers=2)
+# addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=2)
+# addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=3,nameSuffix="test")
+
+"""The following code is for generating normal functional group based graphite with 3 graphene layers in each wall"""
 # addFunctionalGroupNormalPore("CO",[7,8.9,18.5,27.9],"new")
 # addFunctionalGroupNormalPore("OH",[7,8.9,18.5,27.9],"new")
 # addFunctionalGroupNormalPore("COOH",[7,8.9,18.5,27.9],"new")
 # addMultipleFunctionalGroup()
 
-"""The following code is for generating a pore wall with non uniform distribution of the OH groups, where the periodic boundary condition has to be used during the simulation"""
+"""The following code is for generating a pore wall with non uniform distribution of the OH groups, 
+where the periodic boundary condition has to be used during the simulation"""
 # generateMultilayerPore([15.5],xyDims=[24,40]) # Just for non uniform its [24,40]
 # addFunctionalGroupNormalPore("OH",[15.5]) # Line 230 non uniform position changed
 
-"""The following code is for generating a complete pore structure with both the top and bottom walls with non-uniform distribution of the OH groups, where the PBC will not be applied, which means finite pore model"""
-generateMultilayerPore([15.5],xyDims=[32,42]) 
-generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
-addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite_FGNum32")
+"""The following code is for generating a complete pore structure 
+with both the top and bottom walls with non-uniform distribution 
+of the OH groups, where the PBC will not be applied, which means finite pore model"""
+# generateMultilayerPore([15.5],xyDims=[32,42]) 
+# generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
+# addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite_FGNum32")
