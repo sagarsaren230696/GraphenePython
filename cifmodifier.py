@@ -226,10 +226,10 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str,numOfLayer
         # fgBaseX = fgBaseX[[0,8,24]] # For non uniform
         fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
     else:
-        fgBaseX = fgBaseX[::4] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+        fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
         # fgBaseX = fgBaseX[[0,4]] # For non uniform [0,8,24]
         # fgBaseX = fgBaseX[[1,5,len(fgBaseX)-2,len(fgBaseX)-6]] # For non uniform finite pore model 
-        fgBaseY = fgBaseY[::6] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
+        fgBaseY = fgBaseY[::10] # COOH: 6, OH,CO: 6 --- Choosing the y direction distribution of the FGs
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)] # Selecting the chosen x-direction distribution from the base layer
     fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)] # Selecting the chosen y-direction distribution from the base layer
@@ -677,14 +677,14 @@ def addMultipleFunctionalGroup(poreSizes):
 # # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
 # generateMultilayerPore([8.9],numOfLayers=2)
-addFunctionalGroupNormalPore("CO",[8.9],numOfLayers=2)
-addFunctionalGroupNormalPore("OH",[8.9],numOfLayers=2)
+# addFunctionalGroupNormalPore("CO",[8.9],numOfLayers=2)
+# addFunctionalGroupNormalPore("OH",[8.9],numOfLayers=2)
 # addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=2)
 # addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=3,nameSuffix="test")
 
 """The following code is for generating normal functional group based graphite with 3 graphene layers in each wall"""
 # addFunctionalGroupNormalPore("CO",[7,8.9,18.5,27.9],"new")
-# addFunctionalGroupNormalPore("OH",[7,8.9,18.5,27.9],"new")
+addFunctionalGroupNormalPore("OH",[7,8.9,18.5,27.9],"new3")
 # addFunctionalGroupNormalPore("COOH",[7,8.9,18.5,27.9],"new")
 # addMultipleFunctionalGroup()
 
