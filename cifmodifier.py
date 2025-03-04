@@ -11,6 +11,8 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 
+from scipy.spatial.distance import pdist
+
 def readFile(fileName) -> Iterable[str]:
     with open(fileName) as f:
         inputContents = f.readlines()
@@ -187,7 +189,7 @@ def createMiddlePore(df:pd.DataFrame,zLen,poreSize:float) -> pd.DataFrame:
     dfNew = pd.concat(dfNewList,axis=0)
     return dfNew
 
-def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str,numOfLayers=3)->pd.DataFrame:
+def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str,numOfLayers=3,numOfFGs:int=None)->pd.DataFrame:
     """Functional group addition for normal pore structure"""
     with open(f"{nameOfFG}.dat") as f: # reading the Functional group coordinate file
         data = f.readlines()
@@ -199,7 +201,7 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str,numOfLayer
     df_cart=fractToCart(df,dims)  # Converting from fractional to cartesian coordinates
     layers = df_cart["_atom_site_fract_z"].apply(lambda val: round(float(val),2)).unique()[[0,numOfLayers-1]] # Getting the bottom and top layer z position of the graphene wall
     fg_layers = [layers[0]-float(dataDict["lengths"][0]),layers[1]+float(dataDict["lengths"][0])] # Creating the z-position base layer of the functional group
-    print(fg_layers)
+    # print(fg_layers)
     def generateFGBaseLayers(df_zLayers:pd.DataFrame,oldLayers:Iterable,newLayers:Iterable,fgAtomType:int):
         """Generate Functional group base layers"""
         # fgBase1 = df_zLayers.loc[df_zLayers["_atom_site_fract_z"].apply(lambda val: float(val)).isin([round(oldLayers[0],2)])] # Getting all the atom coordinates in the bottom layer 
@@ -220,16 +222,29 @@ def addFunctionalGroups(df:pd.DataFrame,dims:List[float],nameOfFG:str,numOfLayer
 
     fgBaseX = fgBase["_atom_site_fract_x"].unique() # Getting all the x positions of the base layer
     fgBaseY = fgBase["_atom_site_fract_y"].unique() # Getting all the y positions of the base layer
+    # print(len(fgBaseX),len(fgBaseY))
     
-    if nameOfFG == "COOH":
-        fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
-        # fgBaseX = fgBaseX[[0,8,24]] # For non uniform
-        fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
+    if isinstance(numOfFGs,type(None)):
+        if nameOfFG == "COOH":
+            fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+            # fgBaseX = fgBaseX[[0,8,24]] # For non uniform
+            fgBaseY = fgBaseY[::4] # COOH: 6, OH,CO: 4 --- Choosing the y direction distribution of the FGs
+        else:
+            fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
+            # fgBaseX = fgBaseX[[0,4]] # For non uniform [0,8,24]
+            # fgBaseX = fgBaseX[[1,5,len(fgBaseX)-2,len(fgBaseX)-6]] # For non uniform finite pore model 
+            fgBaseY = fgBaseY[::10] # COOH: 6, OH,CO: 6 --- Choosing the y direction distribution of the FGs
+        print(len(fgBaseX),len(fgBaseY))
     else:
-        fgBaseX = fgBaseX[::8] # COOH: 8, OH,CO: 4 --- Choosing the x direction distribution of the FGs 
-        # fgBaseX = fgBaseX[[0,4]] # For non uniform [0,8,24]
-        # fgBaseX = fgBaseX[[1,5,len(fgBaseX)-2,len(fgBaseX)-6]] # For non uniform finite pore model 
-        fgBaseY = fgBaseY[::10] # COOH: 6, OH,CO: 6 --- Choosing the y direction distribution of the FGs
+        assert(isinstance(numOfFGs,int))
+        xNum = np.random.random_integers(1,int(numOfFGs/4))
+        yNum = min([int(numOfFGs/2) - xNum,len(fgBaseY)])
+        print(len(fgBaseX),len(fgBaseY))
+        print(xNum,yNum)
+        fgBaseX = np.random.choice(fgBaseX,xNum,replace=False)
+        fgBaseY = np.random.choice(fgBaseY,yNum,replace=False)
+        minDistance = min(pdist(np.asarray([[x,y] for x,y in zip(fgBaseX,fgBaseY)])))
+        print(minDistance)
 
     fgBase = fgBase.loc[fgBase["_atom_site_fract_x"].apply(lambda val:float(val)).isin(fgBaseX)] # Selecting the chosen x-direction distribution from the base layer
     fgBase = fgBase.loc[fgBase["_atom_site_fract_y"].apply(lambda val:float(val)).isin(fgBaseY)] # Selecting the chosen y-direction distribution from the base layer
@@ -643,10 +658,10 @@ def addFunctionalGroupNormalPore(nameOfFG,poreSizes,nameSuffix="",numOfLayers=3)
         df = createDf(cifData)
         newDf = addFunctionalGroups(df,currentDim,nameOfFG=nameOfFG,numOfLayers=numOfLayers)
         newCifData = createNewData(newDf,cifData)
-        if nameSuffix != "":
-            writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}_{nameSuffix}.cif",newCifData)
-        else:
-            writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}.cif",newCifData)
+        # if nameSuffix != "":
+        #     writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}_{nameSuffix}.cif",newCifData)
+        # else:
+        #     writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}.cif",newCifData)
 
 
 def addFunctionalGroupMiddlePore(poreSize,nameOfFG,nameSuffix=""):
@@ -674,28 +689,49 @@ def addMultipleFunctionalGroup(poreSizes):
         newDf = addFunctionalGroups3(df,currentDim,ratioOfFG=[0.3,0.3,0.4])
         newCifData = createNewData(newDf,cifData)
         writeFile(f"graphite-sheet_3-layers_{poreSize}A_FG-CO_OH_COOH.cif",newCifData)
-# # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
-# generateMultilayerPore([8.9],numOfLayers=2)
-# addFunctionalGroupNormalPore("CO",[8.9],numOfLayers=2)
-# addFunctionalGroupNormalPore("OH",[8.9],numOfLayers=2)
-# addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=2)
-# addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=3,nameSuffix="test")
+def addFunctionalGroupRandomPore(nameOfFG,poreSizes,nameSuffix="",numOfLayers=3,numOfFGs=None):
+    """Add functional groups"""
+    # poreSizes = [7,8.9,18.5,27.9]
+    for poreSize in poreSizes:
+        cifData = readFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A.cif")
+        currentDim = unitCellDimension(cifData)
+        df = createDf(cifData)
+        newDf = addFunctionalGroups(df,currentDim,nameOfFG=nameOfFG,numOfLayers=numOfLayers,numOfFGs=numOfFGs)
+        newCifData = createNewData(newDf,cifData)
+        if nameSuffix != "":
+            writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}_{nameSuffix}.cif",newCifData)
+        else:
+            if isinstance(numOfFGs,type(None)):
+                writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}.cif",newCifData)
+            else:
+                writeFile(f"graphite-sheet_{numOfLayers}-layers_{poreSize}A_FG-{nameOfFG}_N={numOfFGs}.cif",newCifData)
 
-"""The following code is for generating normal functional group based graphite with 3 graphene layers in each wall"""
-# addFunctionalGroupNormalPore("CO",[7,8.9,18.5,27.9],"new")
-addFunctionalGroupNormalPore("OH",[7,8.9,18.5,27.9],"new3")
-# addFunctionalGroupNormalPore("COOH",[7,8.9,18.5,27.9],"new")
-# addMultipleFunctionalGroup()
+if __name__=="__main__":
+    # # poreBlockGenerator([round(int(40/2.46)*2.46,2),round(int(40/4.26)*4.26,2),round(7+3.35*2,2)],3,3.35)
 
-"""The following code is for generating a pore wall with non uniform distribution of the OH groups, 
-where the periodic boundary condition has to be used during the simulation"""
-# generateMultilayerPore([15.5],xyDims=[24,40]) # Just for non uniform its [24,40]
-# addFunctionalGroupNormalPore("OH",[15.5]) # Line 230 non uniform position changed
+    # generateMultilayerPore([8.9],numOfLayers=2)
+    # addFunctionalGroupNormalPore("CO",[8.9],numOfLayers=2)
+    # addFunctionalGroupNormalPore("OH",[8.9],numOfLayers=2)
+    # addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=2)
+    # addFunctionalGroupNormalPore("COOH",[8.9],numOfLayers=3,nameSuffix="test")
 
-"""The following code is for generating a complete pore structure 
-with both the top and bottom walls with non-uniform distribution 
-of the OH groups, where the PBC will not be applied, which means finite pore model"""
-# generateMultilayerPore([15.5],xyDims=[32,42]) 
-# generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
-# addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite_FGNum32")
+    """The following code is for generating normal functional group based graphite with 3 graphene layers in each wall"""
+    # addFunctionalGroupNormalPore("CO",[7,8.9,18.5,27.9],"new")
+    # addFunctionalGroupNormalPore("OH",[7,8.9,18.5,27.9],"new3")
+    # addFunctionalGroupNormalPore("COOH",[7,8.9,18.5,27.9],"new")
+    # addMultipleFunctionalGroup()
+    for _ in range(5):
+        addFunctionalGroupRandomPore(nameOfFG="OH",poreSizes=[7],numOfFGs=96)
+
+    """The following code is for generating a pore wall with non uniform distribution of the OH groups, 
+    where the periodic boundary condition has to be used during the simulation"""
+    # generateMultilayerPore([15.5],xyDims=[24,40]) # Just for non uniform its [24,40]
+    # addFunctionalGroupNormalPore("OH",[15.5]) # Line 230 non uniform position changed
+
+    """The following code is for generating a complete pore structure 
+    with both the top and bottom walls with non-uniform distribution 
+    of the OH groups, where the PBC will not be applied, which means finite pore model"""
+    # generateMultilayerPore([15.5],xyDims=[32,42]) 
+    # generateMiddlePores(spacing=3.35,numOfLayers=3,poreSize=15.5)
+    # addFunctionalGroupMiddlePore(15.5,"OH","nonUniformFinite_FGNum32")
